@@ -104,9 +104,6 @@ test_script:
   - nosetests -e zipline.utils.numpy_utils
   - flake8 zipline tests
 
-on_failure:
-  - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
-
 branches:
   only:
     - master
