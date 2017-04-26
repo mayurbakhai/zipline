@@ -725,13 +725,13 @@ class VolatilityVolumeShareTestCase(WithCreateBarData,
     @classmethod
     def make_futures_info(cls):
         return pd.DataFrame({
-            'sid': [1000],
-            'root_symbol': ['CL'],
-            'symbol': ['CLF07'],
-            'start_date': [cls.ASSET_START_DATE],
-            'end_date': [cls.END_DATE],
-            'multiplier': [500],
-            'exchange': ['CME'],
+            'sid': [1000, 1001],
+            'root_symbol': ['CL', 'FV'],
+            'symbol': ['CLF07', 'FVF07'],
+            'start_date': [cls.ASSET_START_DATE, cls.START_DATE],
+            'end_date': [cls.END_DATE, cls.END_DATE],
+            'multiplier': [500, 500],
+            'exchange': ['CME', 'CME'],
         })
 
     @classmethod
@@ -799,22 +799,25 @@ class VolatilityVolumeShareTestCase(WithCreateBarData,
 
     def test_calculate_impact_without_history(self):
         model = VolatilityVolumeShare(volume_limit=1)
-        minutes = [
+        early_start_asset = self.asset_finder.retrieve_asset(1001)
+
+        cases = [
+            # History will look for data before the start date.
+            (pd.Timestamp('2006-01-05 11:35AM', tz='UTC'), early_start_asset),
             # Start day of the futures contract; no history yet.
-            pd.Timestamp('2006-02-10 11:35AM', tz='UTC'),
+            (pd.Timestamp('2006-02-10 11:35AM', tz='UTC'), self.ASSET),
             # Only a week's worth of history data.
-            pd.Timestamp('2006-02-17 11:35AM', tz='UTC'),
+            (pd.Timestamp('2006-02-17 11:35AM', tz='UTC'), self.ASSET),
         ]
 
-        for minute in minutes:
+        for minute, asset in cases:
             data = self.create_bardata(simulation_dt_func=lambda: minute)
 
-            order = Order(dt=data.current_dt, asset=self.ASSET, amount=10)
+            order = Order(dt=data.current_dt, asset=asset, amount=10)
             price, amount = model.process_order(data, order)
 
             avg_price = (
-                data.current(self.ASSET, 'high') +
-                data.current(self.ASSET, 'low')
+                data.current(asset, 'high') + data.current(asset, 'low')
             ) / 2
             expected_price = \
                 avg_price * (1 + model.NO_DATA_VOLATILITY_SLIPPAGE_IMPACT)
