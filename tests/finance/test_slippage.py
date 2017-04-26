@@ -33,7 +33,6 @@ from zipline.finance.order import Order
 from zipline.finance.slippage import (
     fill_price_worse_than_limit_price,
     MarketImpactBase,
-    NO_DATA_VOLATILITY_SLIPPAGE_IMPACT,
     VolatilityVolumeShare,
     VolumeShareSlippage,
 )
@@ -818,9 +817,9 @@ class VolatilityVolumeShareTestCase(WithCreateBarData,
                 data.current(self.ASSET, 'low')
             ) / 2
             expected_price = \
-                avg_price + (avg_price * NO_DATA_VOLATILITY_SLIPPAGE_IMPACT)
+                avg_price * (1 + model.NO_DATA_VOLATILITY_SLIPPAGE_IMPACT)
 
-            self.assertEqual(price, expected_price)
+            self.assertAlmostEqual(price, expected_price, delta=0.001)
             self.assertEqual(amount, 10)
 
     def test_impacted_price_worse_than_limit(self):

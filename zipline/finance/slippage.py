@@ -37,8 +37,7 @@ LIMIT = 1 << 3
 SQRT_252 = math.sqrt(252)
 
 DEFAULT_EQUITY_VOLUME_SLIPPAGE_BAR_LIMIT = 0.025
-DEFAULT_FUTURE_VOLUME_SLIPPAGE_BAR_LIMIT = 0.025
-NO_DATA_VOLATILITY_SLIPPAGE_IMPACT = 10.0 / 10000
+DEFAULT_FUTURE_VOLUME_SLIPPAGE_BAR_LIMIT = 0.05
 
 
 class LiquidityExceeded(Exception):
@@ -297,6 +296,8 @@ class MarketImpactBase(object):
     according to a history lookback.
     """
 
+    NO_DATA_VOLATILITY_SLIPPAGE_IMPACT = 10.0 / 10000
+
     def __init__(self):
         super(MarketImpactBase, self).__init__()
         self._window_data_cache = ExpiringCache()
@@ -369,7 +370,7 @@ class MarketImpactBase(object):
         if mean_volume == 0 or np.isnan(volatility):
             # If this is the first day the contract exists or there is no
             # volume history, default to a conservative estimate of impact.
-            simulated_impact = price * NO_DATA_VOLATILITY_SLIPPAGE_IMPACT
+            simulated_impact = price * self.NO_DATA_VOLATILITY_SLIPPAGE_IMPACT
         else:
             simulated_impact = self.get_simulated_impact(
                 order=order,
@@ -460,6 +461,8 @@ class VolatilityVolumeShare(MarketImpactBase, FutureSlippageModel):
         for all futures contracts is the same. If given a dictionary, it must
         map root symbols to the eta for contracts of that symbol.
     """
+
+    NO_DATA_VOLATILITY_SLIPPAGE_IMPACT = 7.5 / 10000
     allowed_asset_types = (Future,)
 
     def __init__(self, volume_limit, eta=ROOT_SYMBOL_TO_ETA):
