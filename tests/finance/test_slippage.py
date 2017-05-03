@@ -861,6 +861,19 @@ class MarketImpactTestCase(WithCreateBarData, ZiplineTestCase):
     ASSET_FINDER_EQUITY_SIDS = (1,)
 
     @classmethod
+    def init_class_fixtures(cls):
+        super(MarketImpactTestCase, cls).init_class_fixtures()
+
+        class TestMarketImpact(MarketImpactBase):
+            def get_txn_volume(*args, **kwargs):
+                pass
+
+            def get_simulated_impact(*args, **kwargs):
+                pass
+
+        cls.market_impact_instance = TestMarketImpact()
+
+    @classmethod
     def make_equity_minute_bar_data(cls):
         trading_calendar = cls.trading_calendars[Equity]
         return create_minute_bar_data(
@@ -877,7 +890,7 @@ class MarketImpactTestCase(WithCreateBarData, ZiplineTestCase):
         data = self.create_bardata(simulation_dt_func=lambda: minute)
         asset = self.asset_finder.retrieve_asset(1)
 
-        mean_volume, volatility = MarketImpactBase()._get_window_data(
+        mean_volume, volatility = self.market_impact_instance._get_window_data(
             data, asset, window_length=20,
         )
 

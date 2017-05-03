@@ -290,7 +290,7 @@ class FixedSlippage(SlippageModel):
         )
 
 
-class MarketImpactBase(object):
+class MarketImpactBase(with_metaclass(ABCMeta)):
     """
     Base class for slippage models which compute a simulated price impact
     according to a history lookback.
@@ -319,13 +319,13 @@ class MarketImpactBase(object):
         raise NotImplementedError('get_txn_volume')
 
     @abstractmethod
-    def simulated_impact(self,
-                         order,
-                         current_price,
-                         current_volume,
-                         txn_volume,
-                         mean_volume,
-                         volatility):
+    def get_simulated_impact(self,
+                             order,
+                             current_price,
+                             current_volume,
+                             txn_volume,
+                             mean_volume,
+                             volatility):
         """
         Calculate simulated price impact.
 
@@ -342,7 +342,7 @@ class MarketImpactBase(object):
         ------
         int : impact on the current price.
         """
-        raise NotImplementedError('simulated_impact')
+        raise NotImplementedError('get_simulated_impact')
 
     def process_order(self, data, order):
         if order.open_amount == 0:
