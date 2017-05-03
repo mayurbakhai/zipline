@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from errno import ENOENT
-from functools import partial
 from os import remove
 import sqlite3
 import warnings
@@ -271,12 +270,14 @@ class BcolzDailyBarWriter(object):
             What to do when data is encountered that is outside the range of
             a uint32.
         """
-        read = partial(
-            read_csv,
-            parse_dates=['day'],
-            index_col='day',
-            dtype=self._csv_dtypes,
-        )
+        def read(path):
+            return read_csv(
+                path,
+                parse_dates=['day'],
+                index_col='day',
+                dtype=self._csv_dtypes,
+            ).tz_localize('UTC')
+
         return self.write(
             ((asset, read(path)) for asset, path in iteritems(asset_map)),
             assets=viewkeys(asset_map),
