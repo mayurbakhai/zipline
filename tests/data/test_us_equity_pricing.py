@@ -18,6 +18,7 @@ from nose_parameterized import parameterized
 from numpy import (
     arange,
     datetime64,
+    isnan,
     nan,
 )
 from numpy.testing import (
@@ -42,7 +43,7 @@ from zipline.pipeline.loaders.synthetic import (
     expected_bar_values_2d,
     make_bar_data,
 )
-from zipline.testing import seconds_to_timestamp
+from zipline.testing import parameter_space, seconds_to_timestamp
 from zipline.testing.fixtures import (
     WithBcolzEquityDailyBarReader,
     ZiplineTestCase,
@@ -362,3 +363,62 @@ class BcolzDailyBarNeverReadAllTestCase(BcolzDailyBarTestCase):
     `load_raw_array`.
     """
     BCOLZ_DAILY_BAR_READ_ALL_THRESHOLD = maxsize
+
+
+class BcolzDailyBarWriterMissingDataTestCase(WithBcolzEquityDailyBarReader,
+                                             ZiplineTestCase):
+    EQUITY_DAILY_BAR_START_DATE = TEST_CALENDAR_START
+    EQUITY_DAILY_BAR_END_DATE = TEST_CALENDAR_STOP
+
+    # Sid 3 is active for the entire query range (see EQUITY_INFO above).
+    MISSING_DATA_SID = 3
+    # Leave out data for a day in the middle of the query range.
+    MISSING_DATA_DAY = Timestamp('2015-06-15', tz='UTC')
+
+    @classmethod
+    def make_equity_info(cls):
+        return EQUITY_INFO
+
+    @classmethod
+    def make_equity_daily_bar_data(cls):
+        days_with_gap = cls.equity_daily_bar_days[
+            cls.equity_daily_bar_days != cls.MISSING_DATA_DAY
+        ]
+
+        return make_bar_data(cls.make_equity_info(), days_with_gap)
+
+    @classmethod
+    def init_class_fixtures(cls):
+        super(
+            BcolzDailyBarWriterMissingDataTestCase, cls).init_class_fixtures()
+
+        cls.query_sessions = cls.trading_calendar.sessions_in_range(
+            cls.trading_calendar.minute_to_session_label(TEST_QUERY_START),
+            cls.trading_calendar.minute_to_session_label(TEST_QUERY_STOP)
+        )
+
+    @parameter_space(
+        column=OHLCV,
+    )
+    def test_missing_values_nan(self, column):
+        for session in self.query_sessions:
+            value = self.bcolz_equity_daily_bar_reader.get_value(
+                self.MISSING_DATA_SID,
+                session,
+                column,
+            )
+
+            if session == self.MISSING_DATA_DAY:
+                if column == 'volume':
+                    self.assertEqual(value, 0)
+                else:
+                    self.assertTrue(isnan(value))
+            else:
+                self.assertEqual(
+                    value,
+                    expected_bar_value(
+                        self.MISSING_DATA_SID,
+                        session,
+                        column,
+                    ),
+                )

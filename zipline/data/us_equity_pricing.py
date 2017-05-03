@@ -162,21 +162,6 @@ def winsorise_uint32(df, invalid_data_behavior, column, *columns):
     return df
 
 
-@expect_element(invalid_data_behavior={'warn', 'raise', 'ignore'})
-def to_ctable(raw_data, invalid_data_behavior):
-    if isinstance(raw_data, ctable):
-        # we already have a ctable so do nothing
-        return raw_data
-
-    winsorise_uint32(raw_data, invalid_data_behavior, 'volume', *OHLC)
-    processed = (raw_data[list(OHLC)] * 1000).astype('uint32')
-    dates = raw_data.index.values.astype('datetime64[s]')
-    check_uint32_safe(dates.max().view(np.int64), 'day')
-    processed['day'] = dates.astype('uint32')
-    processed['volume'] = raw_data.volume.astype('uint32')
-    return ctable.fromdataframe(processed)
-
-
 class BcolzDailyBarWriter(object):
     """
     Class capable of writing daily OHLCV data to disk in a format that can
@@ -257,7 +242,10 @@ class BcolzDailyBarWriter(object):
             The newly-written table.
         """
         ctx = maybe_show_progress(
-            ((sid, to_ctable(df, invalid_data_behavior)) for sid, df in data),
+            (
+                (sid, self.to_ctable(df, invalid_data_behavior))
+                for sid, df in data
+            ),
             show_progress=show_progress,
             item_show_func=self.progress_bar_item_show_func,
             label=self.progress_bar_message,
@@ -388,6 +376,28 @@ class BcolzDailyBarWriter(object):
         full_table.attrs['end_session_ns'] = self._end_session.value
         full_table.flush()
         return full_table
+
+    @expect_element(invalid_data_behavior={'warn', 'raise', 'ignore'})
+    def to_ctable(self, raw_data, invalid_data_behavior):
+        if isinstance(raw_data, ctable):
+            # we already have a ctable so do nothing
+            return raw_data
+
+        # Ensure the raw data has all expected sessions between the
+        # first and last, otherwise fill with nans.
+        sessions = self._calendar.sessions_in_range(
+            raw_data.index[0],
+            raw_data.index[-1],
+        )
+        reindexed = raw_data.reindex(sessions)
+
+        winsorise_uint32(reindexed, invalid_data_behavior, 'volume', *OHLC)
+        processed = (reindexed[list(OHLC)] * 1000).astype('uint32')
+        dates = reindexed.index.values.astype('datetime64[s]')
+        check_uint32_safe(dates.max().view(np.int64), 'day')
+        processed['day'] = dates.astype('uint32')
+        processed['volume'] = reindexed.volume.astype('uint32')
+        return ctable.fromdataframe(processed)
 
 
 class BcolzDailyBarReader(SessionBarReader):
